@@ -9,6 +9,9 @@ export const GROUPS: { id: GroupId; label: string }[] = [
 
 export const groupLabel = (g: GroupId) => GROUPS.find((x) => x.id === g)!.label;
 
+/** Top line of every downloaded çizelge (PDF, Excel and blank paper). */
+export const chartHeading = (g: GroupId) => `HARAR 5 ${groupLabel(g).toLocaleUpperCase("tr")} GRUP YOKLAMA TAKİP ÇİZELGESİ`;
+
 /** Students saved before groups existed belong to İbtidai. */
 export const groupOf = (s: Pick<Student, "sinif">): GroupId => (s.sinif === "ihzari" ? "ihzari" : "ibtidai");
 

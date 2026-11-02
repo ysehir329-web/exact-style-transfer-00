@@ -37,3 +37,11 @@ describe("groups", () => {
     expect(next.attendance.some((r) => r.studentId === "a")).toBe(false);
   });
 });
+
+describe("download heading", () => {
+  it("names HARAR 5 and the group on every çizelge", async () => {
+    const { chartHeading } = await import("./groups");
+    expect(chartHeading("ihzari")).toBe("HARAR 5 İHZARİ GRUP YOKLAMA TAKİP ÇİZELGESİ");
+    expect(chartHeading("ibtidai")).toBe("HARAR 5 İBTİDAİ GRUP YOKLAMA TAKİP ÇİZELGESİ");
+  });
+});

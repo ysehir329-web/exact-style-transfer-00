@@ -3,6 +3,7 @@ import { Sheet, Field, inputCls } from "./Sheet";
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "./icons";
 import { useStore } from "@/lib/store";
+import { chartHeading } from "@/lib/groups";
 import { buildBlankChart, periodRange, rangeLabel } from "@/lib/report";
 import { deliverFile, makeBlankPdf, makeBlankXlsx } from "@/lib/report-export";
 import { localIso } from "@/lib/utils";
@@ -17,7 +18,7 @@ export function BlankAttendanceSheet({ open, onClose }: { open: boolean; onClose
   const [error, setError] = useState("");
   const range = useMemo(() => periodRange(period, date), [period, date]);
   const selected = useMemo(() => students.filter((s) => !studentId || s.id === studentId), [students, studentId]);
-  const key = JSON.stringify([range, selected, format]);
+  const key = JSON.stringify([range, selected, format, group]);
   useEffect(() => {
     setReady(null); setError("");
     if (!open || !selected.length) return;
@@ -25,12 +26,12 @@ export function BlankAttendanceSheet({ open, onClose }: { open: boolean; onClose
     const timer = setTimeout(async () => {
       try {
         const chart = buildBlankChart(selected, range);
-        const blob = format === "pdf" ? await makeBlankPdf(chart) : await makeBlankXlsx(chart);
+        const blob = format === "pdf" ? await makeBlankPdf(chart, chartHeading(group)) : await makeBlankXlsx(chart, chartHeading(group));
         if (!cancelled) setReady({ blob, name: `siec-bos-yoklama-${group}-${range.start}_${range.end}.${format}`, key });
       } catch { if (!cancelled) setError("Çizelge hazırlanamadı. Lütfen tekrar deneyin."); }
     }, 150);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [open, selected, range, format, key]);
+  }, [open, selected, range, format, key, group]);
   const file = ready?.key === key ? ready : null;
   return <Sheet open={open} onClose={onClose} title="Boş Yoklama Çizelgesi İndir">
     <Field label="Dönem"><div className="grid grid-cols-3 gap-2">{([['gunluk', 'Günlük'], ['haftalik', 'Haftalık'], ['aylik', 'Aylık']] as const).map(([p, label]) => <Button key={p} aria-label={label} variant={p === period ? "default" : "outline"} onClick={() => setPeriod(p)} aria-pressed={p === period}>{label}</Button>)}</div></Field>

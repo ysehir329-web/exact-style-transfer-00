@@ -2,7 +2,21 @@ import { VAKITLER } from "./stats";
 import { chartByMonth, rangeLabel, type buildBlankChart, type buildChart, type buildReport } from "./report";
 
 type Report = ReturnType<typeof buildReport>;
-export type ExportInput = { report: Report; chart?: ReturnType<typeof buildChart>; title: string; rangeText: string; fileBase: string };
+export type ExportInput = {
+  report: Report; chart?: ReturnType<typeof buildChart>; title: string; rangeText: string; fileBase: string;
+  /** Top line of every çizelge page/sheet, e.g. "HARAR 5 İHZARİ GRUP YOKLAMA TAKİP ÇİZELGESİ". */
+  heading?: string;
+};
+
+export const DEFAULT_HEADING = "NAMAZ TAKİP ÇİZELGESİ";
+
+/** Writes one centered bold line, shrinking the font until it fits `maxW` mm. */
+function fitCentered(doc: Pdf, text: string, x: number, y: number, maxW: number, size: number) {
+  let fs = size;
+  doc.setFontSize(fs);
+  while (fs > 5 && doc.getTextWidth(text) > maxW - 2) doc.setFontSize((fs -= 0.5));
+  doc.text(text, x, y, { align: "center" });
+}
 
 const SUMMARY_HEAD = ["Talebe", "Gün", "Kılınan Vakit", "Namaz %", "Ders", "Ders %", "Geç", "İzinli", "Hasta"];
 const DETAIL_HEAD = ["Tarih", "Talebe", ...VAKITLER, "Ders", "Durum"];
@@ -34,7 +48,7 @@ const pageMonth = new Map<number, string>();
 const DAYS_PER_PAGE = 16, ROWS_PER_PAGE = 30;
 
 /** Landscape namaz takip çizelgesi pages for one month (✓ / X / İ grid + day counts). */
-function chartPdfPages(doc: Pdf, m: MonthChart, first: boolean) {
+function chartPdfPages(doc: Pdf, m: MonthChart, first: boolean, heading: string) {
   const W = 297, L = 10, R = 10, V = VAKITLER.length;
   const noW = 7, nameW = 44, cntW = 11;
   const dayChunks: number[][] = [];
@@ -58,8 +72,8 @@ function chartPdfPages(doc: Pdf, m: MonthChart, first: boolean) {
       const yT = 10, yD = 18, yV = 24, yH = 42, rh = Math.min(5.6, (200 - yH) / Math.max(1, rows.length));
       doc.setDrawColor(0); doc.setLineWidth(0.2); doc.setTextColor(0);
       doc.rect(x0, yT, tableW, yD - yT);
-      doc.setFont("DejaVu", "bold"); doc.setFontSize(12);
-      doc.text(`${m.label.toLocaleUpperCase("tr")} · NAMAZ TAKİP ÇİZELGESİ`, x0 + tableW / 2, yT + 5.6, { align: "center" });
+      doc.setFont("DejaVu", "bold");
+      fitCentered(doc, `${heading} · ${m.label.toLocaleUpperCase("tr")}`, x0 + tableW / 2, yT + 5.6, tableW, 12);
       // header cells
       days.forEach((di, k) => {
         const x = xv + k * V * vw;
@@ -127,7 +141,7 @@ function addFooters(doc: Pdf) {
   }
 }
 
-export async function makePdf({ report, chart, title, rangeText }: ExportInput): Promise<Blob> {
+export async function makePdf({ report, chart, title, rangeText, heading = DEFAULT_HEADING }: ExportInput): Promise<Blob> {
   const [{ jsPDF }, { default: autoTable }, [regular, bold]] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -140,7 +154,7 @@ export async function makePdf({ report, chart, title, rangeText }: ExportInput):
   doc.addFileToVFS("DejaVuSans-Bold.ttf", bold);
   doc.addFont("DejaVuSans-Bold.ttf", "DejaVu", "bold");
   pageMonth.clear();
-  months.forEach((m, i) => chartPdfPages(doc, m, i === 0));
+  months.forEach((m, i) => chartPdfPages(doc, m, i === 0, heading));
   if (months.length) {
     // Çizelge varsa PDF yalnızca namaz takip çizelgesidir: özet ve günlük detay tabloları basılmaz.
     addFooters(doc);
@@ -241,18 +255,18 @@ function chartSheet(XLSX: XL, chart: NonNullable<ExportInput["chart"]>, title: s
   ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 3 + Math.max(1, chart.rows.length), c: last + 1 } });
   ws["!merges"] = merges;
   ws["!cols"] = [{ wch: 4 }, { wch: 24 }, ...Array.from({ length: last - first }, () => ({ wch: 3 })), { wch: 6 }, { wch: 6 }];
-  ws["!rows"] = [{ hpt: 24 }, { hpt: 18 }, { hpt: 52 }, { hpt: 16 }];
+  ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 52 }, { hpt: 16 }];
   return ws;
 }
 
-export async function makeXlsx({ report, chart, title, rangeText }: ExportInput): Promise<Blob> {
+export async function makeXlsx({ report, chart, title, rangeText, heading = DEFAULT_HEADING }: ExportInput): Promise<Blob> {
   const XLSX = (await import("xlsx-js-style")) as unknown as XL & typeof import("xlsx");
   const wb = XLSX.utils.book_new();
   const months = chart ? chartByMonth(chart) : [];
   if (months.length) {
     // Çizelge varsa Excel yalnızca namaz takip çizelgesi sekmeleridir: özet ve günlük detay sekmeleri eklenmez.
     for (const m of months)
-      XLSX.utils.book_append_sheet(wb, chartSheet(XLSX, m, `${m.label} · Namaz Takip Çizelgesi`) as never, m.label);
+      XLSX.utils.book_append_sheet(wb, chartSheet(XLSX, m, `${heading} · ${m.label}`) as never, m.label);
     return new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   }
 
@@ -286,7 +300,7 @@ export async function makeXlsx({ report, chart, title, rangeText }: ExportInput)
 type BlankChart = ReturnType<typeof buildBlankChart>;
 
 /** Blank chart pages drawn exactly like the filled namaz takip çizelgesi, only with empty cells. */
-function blankChartPdfPages(doc: Pdf, chart: BlankChart, days: string[], label: string, first: boolean) {
+function blankChartPdfPages(doc: Pdf, chart: BlankChart, days: string[], label: string, first: boolean, heading: string) {
   const W = 297, L = 10, R = 10, C = chart.columns.length;
   const noW = 6, nameW = 38, cntW = 8, PER = 54;
   const rowChunks: number[][] = [];
@@ -303,8 +317,8 @@ function blankChartPdfPages(doc: Pdf, chart: BlankChart, days: string[], label: 
     const fs = Math.min(7.5, rh * 2.3);
     doc.setDrawColor(0); doc.setLineWidth(0.2); doc.setTextColor(0);
     doc.rect(x0, yT, tableW, yD - yT);
-    doc.setFont("DejaVu", "bold"); doc.setFontSize(11);
-    doc.text(`${label.toLocaleUpperCase("tr")} · NAMAZ TAKİP ÇİZELGESİ`, x0 + tableW / 2, yT + 4.3, { align: "center" });
+    doc.setFont("DejaVu", "bold");
+    fitCentered(doc, `${heading} · ${label.toLocaleUpperCase("tr")}`, x0 + tableW / 2, yT + 4.3, tableW, 11);
     days.forEach((d, k) => {
       const x = xv + k * C * vw;
       doc.setFillColor(229, 241, 235);
@@ -349,7 +363,7 @@ function blankChartPdfPages(doc: Pdf, chart: BlankChart, days: string[], label: 
 }
 
 /** 15-day blocks with up to 54 students fit one A4 landscape page each. */
-export async function makeBlankPdf(chart: BlankChart): Promise<Blob> {
+export async function makeBlankPdf(chart: BlankChart, heading = DEFAULT_HEADING): Promise<Blob> {
   const [{ jsPDF }, [regular, bold]] = await Promise.all([import("jspdf"), loadFonts()]);
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   doc.addFileToVFS("DejaVuSans.ttf", regular); doc.addFont("DejaVuSans.ttf", "DejaVu", "normal");
@@ -359,7 +373,7 @@ export async function makeBlankPdf(chart: BlankChart): Promise<Blob> {
     const days = chart.days.slice(offset, offset + 15);
     const start = days[0], end = days.at(-1);
     if (!start || !end) continue;
-    blankChartPdfPages(doc, chart, days, rangeLabel({ start, end }), first);
+    blankChartPdfPages(doc, chart, days, rangeLabel({ start, end }), first, heading);
     first = false;
   }
   for (let i = 1; i <= doc.getNumberOfPages(); i++) {
@@ -417,18 +431,18 @@ function blankChartSheet(XLSX: XL, chart: BlankChart, days: string[], title: str
   ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 3 + Math.max(1, chart.rows.length), c: last + 1 } });
   ws["!merges"] = merges;
   ws["!cols"] = [{ wch: 4 }, { wch: 24 }, ...Array.from({ length: last - first }, () => ({ wch: 3 })), { wch: 6 }, { wch: 6 }];
-  ws["!rows"] = [{ hpt: 24 }, { hpt: 18 }, { hpt: 52 }, { hpt: 16 }];
+  ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 52 }, { hpt: 16 }];
   return ws;
 }
 
-export async function makeBlankXlsx(chart: BlankChart): Promise<Blob> {
+export async function makeBlankXlsx(chart: BlankChart, heading = DEFAULT_HEADING): Promise<Blob> {
   const XLSX = (await import("xlsx-js-style")) as unknown as XL & typeof import("xlsx");
   const wb = XLSX.utils.book_new();
   for (let offset = 0; offset < chart.days.length; offset += 15) {
     const days = chart.days.slice(offset, offset + 15);
     const start = days[0], end = days.at(-1);
     if (!start || !end) continue;
-    XLSX.utils.book_append_sheet(wb, blankChartSheet(XLSX, chart, days, `${rangeLabel({ start, end })} · Namaz Takip Çizelgesi`) as never, `Çizelge ${Math.floor(offset / 15) + 1}`);
+    XLSX.utils.book_append_sheet(wb, blankChartSheet(XLSX, chart, days, `${heading} · ${rangeLabel({ start, end })}`) as never, `Çizelge ${Math.floor(offset / 15) + 1}`);
   }
   return new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
