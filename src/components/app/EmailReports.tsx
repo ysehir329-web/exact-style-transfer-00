@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
 import { sendReportNow, syncReportData } from "@/lib/report-mail.functions";
+import { KIND_LABEL, type ReportKind } from "@/lib/absence-report";
+
+const SEND_KINDS: ReportKind[] = ["daily", "weekly", "monthly"];
 
 const CFG_KEY = "kuran-kursu-report-mail-v1";
 export const MAX_RECIPIENTS = 50;
@@ -79,21 +82,26 @@ export function EmailReports({ open, onClose }: { open: boolean; onClose: () => 
     } catch (e) { setMsg(`Kaydedilemedi: ${(e as Error).message}`); } finally { setBusy(false); }
   };
 
-  const test = async () => {
+  const sendNow = async (kind: ReportKind) => {
     if (!cfg) return;
     setBusy(true);
     try {
       await push(cfg);
-      const r = await send({ data: { key: cfg.key, kind: "daily" } });
-      setMsg(`Bugünkü rapor ${r.count} adrese gönderildi.`);
+      const r = await send({ data: { key: cfg.key, kind } });
+      setMsg(`${KIND_LABEL[kind]} rapor ${r.count} adrese gönderildi.`);
     } catch (e) { setMsg(`Gönderilemedi: ${(e as Error).message}`); } finally { setBusy(false); }
   };
 
   return (
     <Sheet open={open} onClose={onClose} title="Otomatik Rapor E-postası">
-      <p className="text-sm text-muted-foreground">
-        Her akşam 20:00 bugünkü rapor seçtiğiniz hocalara gider. Pazar akşamı haftalık ve ayın son günü aylık rapor her zaman herkese gider (İstanbul saati).
-      </p>
+      <div className="rounded-xl border border-border p-3 text-sm">
+        <p className="font-semibold">Otomatik gönderim (İstanbul saati)</p>
+        <ul className="mt-2 space-y-1 text-muted-foreground">
+          <li><b className="text-foreground">Günlük:</b> her akşam 20:00 · seçtiğiniz hocalara</li>
+          <li><b className="text-foreground">Haftalık:</b> her pazar 20:00 · herkese</li>
+          <li><b className="text-foreground">Aylık:</b> ayın son günü 20:00 · herkese</li>
+        </ul>
+      </div>
 
       <div className="mt-4 flex gap-2">
         <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="hoca@ornek.com" type="email" />
@@ -122,10 +130,18 @@ export function EmailReports({ open, onClose }: { open: boolean; onClose: () => 
         </>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button onClick={save} disabled={busy || !cfg}>Kaydet</Button>
-        <Button variant="outline" onClick={test} disabled={busy || !cfg?.recipients.length}>Bugünkü raporu şimdi gönder</Button>
+      <Button className="mt-4 w-full" onClick={save} disabled={busy || !cfg}>Kaydet</Button>
+
+      <p className="mt-5 text-sm font-semibold">İstediğiniz zaman şimdi gönderin</p>
+      <p className="text-xs text-muted-foreground">Haftalık bu haftayı (Pzt–Paz), aylık bu ayı kapsar.</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {SEND_KINDS.map((k) => (
+          <Button key={k} variant="outline" onClick={() => sendNow(k)} disabled={busy || !cfg?.recipients.length}>
+            {KIND_LABEL[k]}
+          </Button>
+        ))}
       </div>
+      {!cfg?.recipients.length && <p className="mt-1 text-xs text-muted-foreground">Göndermek için önce hoca e-postası ekleyip kaydedin.</p>}
       {msg && <p className="mt-3 text-center text-sm text-primary">{msg}</p>}
     </Sheet>
   );
