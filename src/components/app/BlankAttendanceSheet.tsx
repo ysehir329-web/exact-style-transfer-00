@@ -8,7 +8,7 @@ import { deliverFile, makeBlankPdf, makeBlankXlsx } from "@/lib/report-export";
 import { localIso } from "@/lib/utils";
 
 export function BlankAttendanceSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { students } = useStore();
+  const { students, group } = useStore();
   const [period, setPeriod] = useState<"gunluk" | "haftalik" | "aylik">("haftalik");
   const [date, setDate] = useState(localIso);
   const [studentId, setStudentId] = useState("");
@@ -26,7 +26,7 @@ export function BlankAttendanceSheet({ open, onClose }: { open: boolean; onClose
       try {
         const chart = buildBlankChart(selected, range);
         const blob = format === "pdf" ? await makeBlankPdf(chart) : await makeBlankXlsx(chart);
-        if (!cancelled) setReady({ blob, name: `siec-bos-yoklama-${range.start}_${range.end}.${format}`, key });
+        if (!cancelled) setReady({ blob, name: `siec-bos-yoklama-${group}-${range.start}_${range.end}.${format}`, key });
       } catch { if (!cancelled) setError("Çizelge hazırlanamadı. Lütfen tekrar deneyin."); }
     }, 150);
     return () => { cancelled = true; clearTimeout(timer); };

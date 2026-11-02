@@ -16,7 +16,7 @@ export const syncReportData = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const students = data.students.map((s) => ({ id: s.id, name: s.name }));
+    const students = data.students.map((s) => ({ id: s.id, name: s.name, sinif: s["sinif"] === "ihzari" ? "ihzari" : "ibtidai" }));
     const { error } = await supabaseAdmin.from("report_subscriptions").upsert({
       sync_key: data.key, recipients: data.recipients, daily_recipients: data.dailyRecipients ?? null, students, attendance: data.attendance as never, updated_at: new Date().toISOString(),
     });

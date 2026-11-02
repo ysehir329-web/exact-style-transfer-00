@@ -37,7 +37,7 @@ type Row = { email: string; daily: boolean };
 
 /** Lets the user edit teacher emails and choose who gets the daily report. */
 export function EmailReports({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { students, attendance } = useStore();
+  const { all: { students, attendance } } = useStore();
   const sync = useServerFn(syncReportData);
   const send = useServerFn(sendReportNow);
   const [cfg, setCfg] = useState<Cfg | null>(null);
@@ -101,6 +101,7 @@ export function EmailReports({ open, onClose }: { open: boolean; onClose: () => 
           <li><b className="text-foreground">Haftalık:</b> her pazar 20:00 · herkese</li>
           <li><b className="text-foreground">Aylık:</b> ayın son günü 20:00 · herkese</li>
         </ul>
+        <p className="mt-2 text-xs text-muted-foreground">Her e-postada İbtidai ve İhzari grupları ayrı bölümlerde yer alır.</p>
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -149,7 +150,7 @@ export function EmailReports({ open, onClose }: { open: boolean; onClose: () => 
 
 /** Mounted once in the app shell: copies data to Cloud a few seconds after any change, once teachers are saved. */
 export function ReportAutoSync() {
-  const { students, attendance } = useStore();
+  const { all: { students, attendance } } = useStore();
   const sync = useServerFn(syncReportData);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {

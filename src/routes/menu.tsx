@@ -11,7 +11,8 @@ import { StudentForm, emptyStudent } from "@/components/app/StudentForm";
 import { PhotoNamesImport } from "@/components/app/PhotoNamesImport";
 import { useStore, type State } from "@/lib/store";
 import { exportFiles, importFiles } from "@/lib/attachments";
-import { withTrialStudents } from "@/lib/trial-students";
+import { trialPrefix, withTrialStudents } from "@/lib/trial-students";
+import { groupLabel } from "@/lib/groups";
 
 export const Route = createFileRoute("/menu")({
   head: () => ({
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/menu")({
 });
 
 function Menu() {
-  const { students, tutanaklar, attendance, importAll, addStudent } = useStore();
+  const { students, tutanaklar, attendance, importAll, addStudent, all, replaceAll, group } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
@@ -36,10 +37,11 @@ function Menu() {
   const [addOpen, setAddOpen] = useState(false);
   const [mailOpen, setMailOpen] = useState(false);
 
+  // Backups always hold both groups.
   const exportData = async () => {
-    const ids = tutanaklar.flatMap((t) => [t.photoId, t.docId]).filter((x): x is string => Boolean(x));
+    const ids = all.tutanaklar.flatMap((t) => [t.photoId, t.docId]).filter((x): x is string => Boolean(x));
     const files = ids.length ? await exportFiles(ids).catch(() => ({})) : {};
-    const blob = new Blob([JSON.stringify({ students, tutanaklar, attendance, files }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ ...all, files }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `kuran-kursu-yedek-${localIso()}.json`;
@@ -51,7 +53,7 @@ function Menu() {
     try {
       const data = JSON.parse(await f.text()) as State & { files?: Parameters<typeof importFiles>[0] };
       await importFiles(data.files).catch(() => undefined);
-      importAll(data);
+      replaceAll(data);
       setMsg("Yedek geri yüklendi.");
     } catch {
       setMsg("Dosya okunamadı.");
@@ -62,6 +64,7 @@ function Menu() {
   return (
     <>
       <h2 className="mt-7 font-serif text-3xl font-bold">Menü</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{groupLabel(group)} Grubu</p>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         {[["Talebe", students.length], ["Yoklama", attendance.length], ["Tutanak", tutanaklar.length]].map(([l, v]) => (
           <div key={l} className="rounded-2xl bg-surface p-3"><p className="font-serif text-2xl font-bold">{v}</p><p className="text-xs text-muted-foreground">{l}</p></div>
@@ -69,15 +72,15 @@ function Menu() {
       </div>
       <div className="mt-5 space-y-3">
         <button onClick={() => setAddOpen(true)} className={`${btn} border-primary bg-primary text-primary-foreground`}><UserPlus className="h-5 w-5" /> Talebe Ekle</button>
-        <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Yeni Talebe">
+        <Sheet open={addOpen} onClose={() => setAddOpen(false)} title={`Yeni Talebe · ${groupLabel(group)}`}>
           <PhotoNamesImport onDone={(n) => { setAddOpen(false); setMsg(`${n} talebe eklendi.`); }} />
           <StudentForm initial={emptyStudent} onSubmit={(s) => { addStudent(s); setAddOpen(false); setMsg(`${s.name} eklendi.`); }} />
         </Sheet>
         <Button variant="outline" onClick={() => {
-          const next = withTrialStudents(students);
+          const next = withTrialStudents(students, group);
           importAll({ students: next, attendance, tutanaklar });
           setMsg(`${next.length - students.length} deneme talebesi eklendi; mevcut kayıtlar korundu.`);
-        }} disabled={students.filter((student) => student.id.startsWith("trial-student-")).length === 55} className="h-auto w-full justify-start whitespace-normal py-4">
+        }} disabled={students.filter((student) => student.id.startsWith(trialPrefix(group))).length === 55} className="h-auto w-full justify-start whitespace-normal py-4">
           <UserPlus className="text-primary" /> 55 deneme talebesi ekle
         </Button>
         <Link to="/ai-tutanak" className={btn}><Sparkles className="h-5 w-5 text-primary" /> AI ile Tutanak Hazırla</Link>
