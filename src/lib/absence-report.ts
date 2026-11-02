@@ -47,15 +47,23 @@ export function absenceSummary(students: Student[], rows: AttendanceRow[], range
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const fmt = (s: string) => `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}`;
 
-export function absenceEmail(kind: ReportKind, range: Range, lines: AbsenceLine[]) {
-  const period = range.start === range.end ? fmt(range.start) : `${fmt(range.start)} – ${fmt(range.end)}`;
-  const subject = `${KIND_LABEL[kind]} Yoklama Raporu · ${period}`;
+export type EmailSection = { label: string; lines: AbsenceLine[] };
+
+const sectionHtml = ({ label, lines }: EmailSection) => {
   const body = lines.length
     ? `<table style="border-collapse:collapse;font-size:14px"><tr style="background:#e5f1eb"><th style="border:1px solid #999;padding:6px 10px;text-align:left">Adı Soyadı</th><th style="border:1px solid #999;padding:6px 10px">Katılmadığı Gün</th><th style="border:1px solid #999;padding:6px 10px">Katılmadığı Vakit</th></tr>${lines
         .map((l) => `<tr><td style="border:1px solid #999;padding:6px 10px">${esc(l.name)}</td><td style="border:1px solid #999;padding:6px 10px;text-align:center">${l.gun}</td><td style="border:1px solid #999;padding:6px 10px;text-align:center;color:#c43434;font-weight:bold">${l.vakit}</td></tr>`)
         .join("")}</table>`
     : `<p>Bu dönemde namaza katılmayan talebe yok.</p>`;
-  const html = `<div style="font-family:Arial,sans-serif;color:#222"><h2 style="color:#22634a">${esc(subject)}</h2><p>Namaza katılmayan talebeler: <b>${lines.length}</b></p>${body}<p style="color:#888;font-size:12px">Talebe Takip Paneli tarafından otomatik gönderildi.</p></div>`;
+  return `<h3 style="color:#22634a;margin:20px 0 6px">${esc(label)}</h3><p>Namaza katılmayan talebeler: <b>${lines.length}</b></p>${body}`;
+};
+
+/** One email for all groups; each group gets its own section. */
+export function absenceEmail(kind: ReportKind, range: Range, sections: EmailSection[]) {
+  const period = range.start === range.end ? fmt(range.start) : `${fmt(range.start)} – ${fmt(range.end)}`;
+  const subject = `${KIND_LABEL[kind]} Yoklama Raporu · ${period}`;
+  const body = sections.length ? sections.map(sectionHtml).join("") : `<p>Kayıtlı talebe yok.</p>`;
+  const html = `<div style="font-family:Arial,sans-serif;color:#222"><h2 style="color:#22634a">${esc(subject)}</h2>${body}<p style="color:#888;font-size:12px">Talebe Takip Paneli tarafından otomatik gönderildi.</p></div>`;
   return { subject, html };
 }
 
