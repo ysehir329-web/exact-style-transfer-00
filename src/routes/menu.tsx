@@ -28,7 +28,7 @@ export const Route = createFileRoute("/menu")({
 });
 
 function Menu() {
-  const { students, tutanaklar, attendance, importAll, addStudent } = useStore();
+  const { students, tutanaklar, attendance, importAll, addStudent, all, replaceAll, group } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
@@ -36,10 +36,11 @@ function Menu() {
   const [addOpen, setAddOpen] = useState(false);
   const [mailOpen, setMailOpen] = useState(false);
 
+  // Backups always hold both groups.
   const exportData = async () => {
-    const ids = tutanaklar.flatMap((t) => [t.photoId, t.docId]).filter((x): x is string => Boolean(x));
+    const ids = all.tutanaklar.flatMap((t) => [t.photoId, t.docId]).filter((x): x is string => Boolean(x));
     const files = ids.length ? await exportFiles(ids).catch(() => ({})) : {};
-    const blob = new Blob([JSON.stringify({ students, tutanaklar, attendance, files }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ ...all, files }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `kuran-kursu-yedek-${localIso()}.json`;
@@ -51,7 +52,7 @@ function Menu() {
     try {
       const data = JSON.parse(await f.text()) as State & { files?: Parameters<typeof importFiles>[0] };
       await importFiles(data.files).catch(() => undefined);
-      importAll(data);
+      replaceAll(data);
       setMsg("Yedek geri yüklendi.");
     } catch {
       setMsg("Dosya okunamadı.");
