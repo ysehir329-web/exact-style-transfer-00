@@ -62,7 +62,7 @@ export function ReportSheet({ open, onClose, initialDate, studentId: initialStud
       cancelled = true;
       clearTimeout(t);
     };
-  }, [open, rows, attendance, students, studentId, format, period, periodLabel, range, studentName]);
+  }, [open, rows, attendance, students, studentId, format, period, periodLabel, range, studentName, group]);
 
   const download = () => {
     if (file) void deliverFile(file.blob, file.name);
