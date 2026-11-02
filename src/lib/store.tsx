@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isGroupId, replaceGroup, sliceGroup, type GroupId } from "./groups";
 
 export type Student = {
   id: string;
@@ -10,6 +11,8 @@ export type Student = {
   guardian: string;
   phone: string;
   status: "İyi" | "Orta";
+  /** Class the student belongs to; missing on old records = İbtidai. */
+  sinif?: GroupId | undefined;
 };
 
 export type Tutanak = {
@@ -43,6 +46,7 @@ export type AttendanceRow = {
 };
 
 type Store = {
+  /** The active group's students (and below, only their attendance and tutanak). */
   students: Student[];
   tutanaklar: Tutanak[];
   attendance: AttendanceRow[];
@@ -55,12 +59,20 @@ type Store = {
   removeAttendance: (id: string) => void;
   updateTutanak: (id: string, t: Partial<Tutanak>) => void;
   saveDay: (date: string, rows: Omit<AttendanceRow, "id" | "date">[]) => void;
+  /** Replaces only the active group's data. */
   importAll: (s: State) => void;
+  /** Every group's data (backups, report emails). */
+  all: State;
+  /** Replaces every group's data (backup restore). */
+  replaceAll: (s: State) => void;
+  group: GroupId;
+  setGroup: (g: GroupId) => void;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 const KEY = "kuran-kursu-store-v2";
+const GROUP_KEY = "kuran-kursu-active-group";
 
 export type State = { students: Student[]; tutanaklar: Tutanak[]; attendance: AttendanceRow[] };
 
@@ -82,11 +94,20 @@ const StoreContext = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ students: [], tutanaklar: [], attendance: [] });
   const [ready, setReady] = useState(false);
+  const [group, setGroupState] = useState<GroupId>("ibtidai");
 
   useEffect(() => {
     setState(load());
+    const g = localStorage.getItem(GROUP_KEY);
+    if (isGroupId(g)) setGroupState(g);
     setReady(true);
   }, []);
+
+  const setGroup = (g: GroupId) => {
+    setGroupState(g);
+    localStorage.setItem(GROUP_KEY, g);
+  };
+  const view = useMemo(() => sliceGroup(state, group), [state, group]);
 
   useEffect(() => {
     if (!ready) return;
@@ -99,8 +120,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state, ready]);
 
   const store: Store = {
-    ...state,
-    addStudent: (s) => setState((p) => ({ ...p, students: [...p.students, { ...s, id: uid() }] })),
+    ...view,
+    all: state,
+    group,
+    setGroup,
+    addStudent: (s) => setState((p) => ({ ...p, students: [...p.students, { ...s, sinif: s.sinif ?? group, id: uid() }] })),
     updateStudent: (id, s) => setState((p) => ({ ...p, students: p.students.map((x) => (x.id === id ? { ...x, ...s } : x)) })),
     removeStudent: (id) =>
       setState((p) => ({
@@ -124,7 +148,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ],
         };
       }),
-    importAll: (s) => setState({ students: s.students ?? [], tutanaklar: s.tutanaklar ?? [], attendance: s.attendance ?? [] }),
+    importAll: (s) =>
+      setState((p) => replaceGroup(p, group, { students: s.students ?? [], tutanaklar: s.tutanaklar ?? [], attendance: s.attendance ?? [] })),
+    replaceAll: (s) => setState({ students: s.students ?? [], tutanaklar: s.tutanaklar ?? [], attendance: s.attendance ?? [] }),
   };
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
