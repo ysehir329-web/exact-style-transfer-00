@@ -56,3 +56,12 @@ describe("report downloads", () => {
     }
   });
 });
+
+describe("group heading in downloads", () => {
+  it("Excel çizelge starts with the group heading", async () => {
+    const blob = await makeXlsx({ ...input(), heading: "HARAR 5 İHZARİ GRUP YOKLAMA TAKİP ÇİZELGESİ" });
+    const wb = XLSX.read(await readBlob(blob), { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]!]!;
+    expect(String(ws["A1"]?.v)).toMatch(/^HARAR 5 İHZARİ GRUP YOKLAMA TAKİP ÇİZELGESİ/);
+  });
+});
