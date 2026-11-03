@@ -9,4 +9,4 @@
 - [x] Bigger photos in tutanak PDFs.
 - [x] AI Tutanak page: short note -> full formal tutanak with child name and date (save, PDF, copy).
 - [x] Fix attendance errors: paper photos read X as "gelmedi", attendance auto-saves, reports count each day once.
-- [ ] Email times: daily 21:00, weekly Sunday 09:00, monthly last day 09:00 (Istanbul); remove the group and address-hint notes.
+- [x] Email times: daily 21:00, weekly Sunday 09:00, monthly last day 09:00 (Istanbul); remove the group and address-hint notes.
