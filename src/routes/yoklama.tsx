@@ -44,18 +44,21 @@ function Yoklama() {
   const label = d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
   const day = d.toLocaleDateString("tr-TR", { weekday: "long" });
   const get = (id: string): Row => marks[id] ?? emptyRow();
-  const change = (id: string, column: string, status: CellStatus) => {
-    setMarks((current) => ({ ...current, [id]: setCellStatus(current[id] ?? emptyRow(), column, status) }));
-    setSaved(false);
+  /** Every tap is saved at once, so a forgotten "Kaydet" or a date/page change never loses marks. */
+  const commit = (next: Record<string, Row>) => {
+    setMarks(next);
+    saveDay(date, students.map((s) => ({ studentId: s.id, ...(next[s.id] ?? emptyRow()) })));
+    setSaved(true);
   };
+  const change = (id: string, column: string, status: CellStatus) => commit({ ...marks, [id]: setCellStatus(get(id), column, status) });
   const markAll = () => {
     const allOn = students.every((s) => came(cellStatus(get(s.id), tek)));
     const next = { ...marks };
     for (const s of students) next[s.id] = setCellStatus(get(s.id), tek, allOn ? "yok" : "geldi");
-    setMarks(next); setSaved(false);
+    commit(next);
   };
   const tekCount = students.filter((s) => came(cellStatus(get(s.id), tek))).length;
-  const save = () => { saveDay(date, students.map((s) => ({ studentId: s.id, ...get(s.id) }))); setSaved(true); };
+  const save = () => commit(marks);
 
   return (
     <>
