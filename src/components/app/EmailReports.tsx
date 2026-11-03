@@ -97,18 +97,16 @@ export function EmailReports({ open, onClose }: { open: boolean; onClose: () => 
       <div className="rounded-xl border border-border p-3 text-sm">
         <p className="font-semibold">Otomatik gönderim (İstanbul saati)</p>
         <ul className="mt-2 space-y-1 text-muted-foreground">
-          <li><b className="text-foreground">Günlük:</b> her akşam 20:00 · seçtiğiniz hocalara</li>
-          <li><b className="text-foreground">Haftalık:</b> her pazar 20:00 · herkese</li>
-          <li><b className="text-foreground">Aylık:</b> ayın son günü 20:00 · herkese</li>
+          <li><b className="text-foreground">Günlük:</b> her akşam 21:00 · seçtiğiniz hocalara</li>
+          <li><b className="text-foreground">Haftalık:</b> her pazar sabah 09:00 · herkese</li>
+          <li><b className="text-foreground">Aylık:</b> ayın son günü sabah 09:00 · herkese</li>
         </ul>
-        <p className="mt-2 text-xs text-muted-foreground">Her e-postada İbtidai ve İhzari grupları ayrı bölümlerde yer alır.</p>
       </div>
 
       <div className="mt-4 flex gap-2">
         <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="hoca@ornek.com" type="email" />
         <Button variant="outline" onClick={add}>Ekle</Button>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">{rows.length} / {MAX_RECIPIENTS} adres · Birden fazla adresi virgülle ayırarak tek seferde ekleyebilirsiniz.</p>
 
       {rows.length > 0 && (
         <>
