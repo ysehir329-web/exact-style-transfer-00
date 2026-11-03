@@ -5,7 +5,7 @@ import { Avatar } from "@/components/app/AppShell";
 import { BlankAttendanceSheet } from "@/components/app/BlankAttendanceSheet";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
-import { VAKITLER } from "@/lib/stats";
+import { COLUMNS, CELL_LABEL, CELL_LETTER, cellStatus, setCellStatus, type CellStatus } from "@/lib/stats";
 import { localIso } from "@/lib/utils";
 import { analyzePaperAttendance, type PaperRow } from "@/lib/paper-ai.functions";
 import { Calendar, FileText, Camera, ImagePlus, Sparkles, Save, Check } from "@/components/app/icons";
@@ -27,7 +27,15 @@ export const Route = createFileRoute("/kagit")({
 const fmt = (s: string) => new Date(s + "T12:00").toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
 const monthStart = () => { const n = new Date(); return localIso(new Date(n.getFullYear(), n.getMonth(), 1)); };
 const MAX_FILES = 6;
-const cols = [...VAKITLER, "Ders"];
+/** Tapping a cell cycles through every possible mark. */
+const NEXT: Record<CellStatus, CellStatus> = { geldi: "yok", yok: "gec", gec: "izinli", izinli: "hasta", hasta: "geldi" };
+const cellCls: Record<CellStatus, string> = {
+  geldi: "bg-primary text-primary-foreground",
+  yok: "bg-destructive/10 text-destructive",
+  gec: "bg-amber-soft text-warn",
+  izinli: "bg-sky-soft text-info",
+  hasta: "bg-destructive/20 text-destructive",
+};
 
 /** Shrink a photo to max 1600px JPEG so uploads stay fast on phones. */
 async function toDataUrl(file: File): Promise<string> {
@@ -93,14 +101,15 @@ function Kagit() {
   };
 
   const toggle = (i: number, c: string) => {
-    setRows((rs) => rs?.map((r, j) => j !== i ? r : c === "Ders" ? { ...r, ders: !r.ders } : { ...r, vakitler: r.vakitler.includes(c) ? r.vakitler.filter((v) => v !== c) : VAKITLER.filter((v) => v === c || r.vakitler.includes(v)) }) ?? null);
+    setRows((rs) => rs?.map((r, j) => j !== i ? r : { ...r, ...setCellStatus(r, c, NEXT[cellStatus(r, c)]), supheli: r.supheli.filter((x) => x !== c) }) ?? null);
     setSaved(false);
   };
+  const doubtful = (rows ?? []).reduce((a, r) => a + r.supheli.length, 0);
 
   const save = () => {
     const byDate: Record<string, PaperRow[]> = {};
     for (const r of rows ?? []) (byDate[r.date] ??= []).push(r);
-    for (const [date, list] of Object.entries(byDate)) saveDay(date, list.map((r) => ({ studentId: r.studentId, vakitler: r.vakitler, ders: r.ders, durum: "normal" as const })));
+    for (const [date, list] of Object.entries(byDate)) saveDay(date, list.map((r) => ({ studentId: r.studentId, vakitler: r.vakitler, ders: r.ders, durum: "normal" as const, durumlar: r.durumlar ?? {} })));
     setSaved(true);
   };
 
@@ -142,7 +151,8 @@ function Kagit() {
       {rows && (
         <div className="mt-5 rounded-2xl border border-border bg-card p-4">
           <h3 className="font-serif text-lg font-bold">Kontrol Tablosu</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Yanlış okunan hücreye dokunarak düzeltin, sonra kaydedin. Aynı gün için önceki yoklama üzerine yazılır.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Her hücreyi kâğıtla karşılaştırın. Yanlış okunan hücreye dokundukça değişir: ✓ Geldi → X Gelmedi → G Geç → İ İzinli → H Hasta. Aynı gün için önceki yoklama üzerine yazılır.</p>
+          {doubtful > 0 && <p className="mt-2 rounded-lg border-2 border-warn bg-amber-soft px-3 py-2 text-xs font-medium text-warn">Sarı çerçeveli {doubtful} hücreyi yapay zekâ net okuyamadı. Lütfen kâğıda bakıp kontrol edin.</p>}
           <div className="mt-3 space-y-2">
             {rows.map((r, i) => (
               <div key={r.studentId + r.date} className="rounded-xl border border-border p-3">
@@ -152,11 +162,13 @@ function Kagit() {
                   <span className="text-xs text-muted-foreground">{fmt(r.date)}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-6 gap-1">
-                  {cols.map((c) => {
-                    const on = c === "Ders" ? r.ders : r.vakitler.includes(c);
+                  {COLUMNS.map((c) => {
+                    const st = cellStatus(r, c);
+                    const doubt = r.supheli.includes(c);
                     return (
-                      <button key={c} onClick={() => toggle(i, c)} className={`rounded-lg py-1.5 text-[11px] ${on ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground"}`}>
-                        {c}
+                      <button key={c} onClick={() => toggle(i, c)} aria-label={`${nameOf(r.studentId)} ${c} ${CELL_LABEL[st]}`} title={`${c}: ${CELL_LABEL[st]}`} className={`flex flex-col items-center rounded-lg py-1 text-[10px] leading-tight ${cellCls[st]} ${doubt ? "ring-2 ring-warn ring-offset-1" : ""}`}>
+                        <span>{c}</span>
+                        <span className="text-sm font-bold">{CELL_LETTER[st]}</span>
                       </button>
                     );
                   })}

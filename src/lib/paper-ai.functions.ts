@@ -1,21 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { VAKITLER } from "./stats";
+import { PAPER_INSTRUCTIONS, parsePaperReply } from "./paper-ai";
 
-export type PaperRow = { studentId: string; date: string; vakitler: string[]; ders: boolean };
+export type { PaperRow } from "./paper-ai";
 
 const MAX_IMAGES = 6;
 const MAX_IMAGE_CHARS = 4_000_000;
-
-const INSTRUCTIONS = `Kur'an kursunun kâğıda alınmış yoklama çizelgesinin fotoğraflarını okuyorsun.
-Görevin: her talebe ve her gün için hangi namaz vakitlerine (${VAKITLER.join(", ")}) ve derse katıldığını çıkarmak.
-Kurallar:
-- Sadece verilen talebe listesindeki isimlerle eşleştir; eşleşmeyen isimleri atla. Yazım farklarını (kısaltma, harf hatası) makul ölçüde eşleştir.
-- Sadece verilen tarih aralığındaki günleri yaz. Tarihleri YYYY-MM-DD biçiminde ver.
-- İşaret (✓, X, +, nokta, imza) katıldı demektir; boş hücre katılmadı demektir. Emin olmadığın hücreyi boş say.
-- Çizelgede olmayan günü uydurma.
-- YALNIZCA şu JSON'u döndür, başka hiçbir şey yazma:
-{"rows":[{"studentId":"...","date":"YYYY-MM-DD","vakitler":["Sabah"],"ders":true}]}`;
-
 const isoRe = /^\d{4}-\d{2}-\d{2}$/;
 
 export const analyzePaperAttendance = createServerFn({ method: "POST" })
@@ -35,25 +24,8 @@ export const analyzePaperAttendance = createServerFn({ method: "POST" })
     const { generateWithImagesViaGateway, aiErrorMessage } = await import("./ai-gateway.server");
     const prompt = `Tarih aralığı: ${data.start} – ${data.end}\nTalebeler (id: isim):\n${data.students.map((s) => `${s.id}: ${s.name}`).join("\n")}`;
     try {
-      const text = await generateWithImagesViaGateway(INSTRUCTIONS, prompt, data.images);
-      const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-      const parsed = JSON.parse(json) as { rows?: unknown[] };
-      const ids = new Set(data.students.map((s) => s.id));
-      const vk = new Set<string>(VAKITLER);
-      const rows: PaperRow[] = [];
-      const seen = new Set<string>();
-      for (const r of parsed.rows ?? []) {
-        const o = r as Record<string, unknown>;
-        const studentId = String(o["studentId"] ?? "");
-        const date = String(o["date"] ?? "");
-        if (!ids.has(studentId) || !isoRe.test(date) || date < data.start || date > data.end) continue;
-        const key = `${studentId}|${date}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const vakitler = Array.isArray(o["vakitler"]) ? o["vakitler"].map(String).filter((v) => vk.has(v)) : [];
-        rows.push({ studentId, date, vakitler: VAKITLER.filter((v) => vakitler.includes(v)), ders: Boolean(o["ders"]) });
-      }
-      rows.sort((a, b) => a.date.localeCompare(b.date));
+      const text = await generateWithImagesViaGateway(PAPER_INSTRUCTIONS, prompt, data.images, "high");
+      const rows = parsePaperReply(text, { studentIds: data.students.map((s) => s.id), start: data.start, end: data.end });
       return { ok: true as const, rows };
     } catch (error) {
       console.error("analyzePaperAttendance failed", error);

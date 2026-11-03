@@ -44,18 +44,21 @@ function Yoklama() {
   const label = d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
   const day = d.toLocaleDateString("tr-TR", { weekday: "long" });
   const get = (id: string): Row => marks[id] ?? emptyRow();
-  const change = (id: string, column: string, status: CellStatus) => {
-    setMarks((current) => ({ ...current, [id]: setCellStatus(current[id] ?? emptyRow(), column, status) }));
-    setSaved(false);
+  /** Every tap is saved at once, so a forgotten "Kaydet" or a date/page change never loses marks. */
+  const commit = (next: Record<string, Row>) => {
+    setMarks(next);
+    saveDay(date, students.map((s) => ({ studentId: s.id, ...(next[s.id] ?? emptyRow()) })));
+    setSaved(true);
   };
+  const change = (id: string, column: string, status: CellStatus) => commit({ ...marks, [id]: setCellStatus(get(id), column, status) });
   const markAll = () => {
     const allOn = students.every((s) => came(cellStatus(get(s.id), tek)));
     const next = { ...marks };
     for (const s of students) next[s.id] = setCellStatus(get(s.id), tek, allOn ? "yok" : "geldi");
-    setMarks(next); setSaved(false);
+    commit(next);
   };
   const tekCount = students.filter((s) => came(cellStatus(get(s.id), tek))).length;
-  const save = () => { saveDay(date, students.map((s) => ({ studentId: s.id, ...get(s.id) }))); setSaved(true); };
+  const save = () => commit(marks);
 
   return (
     <>
@@ -68,6 +71,7 @@ function Yoklama() {
         </label>
         <Button onClick={save} disabled={!students.length} size="sm" className="shrink-0">{saved ? <Check /> : <Save />} {saved ? "Kaydedildi" : "Yoklamayı Kaydet"}</Button>
       </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">Her işaret anında otomatik kaydedilir. İşaretlenmeyen hücre X (gelmedi) sayılır.</p>
       <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-surface p-1 text-sm">
         {([["hepsi", "Tüm Vakitler"], ["tek", "Tek Namaz"]] as const).map(([k, l]) => (
           <Button key={k} variant="ghost" size="sm" onClick={() => setMode(k)} aria-pressed={mode === k} className={mode === k ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground"}>{l}</Button>

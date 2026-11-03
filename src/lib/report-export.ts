@@ -18,6 +18,11 @@ function fitCentered(doc: Pdf, text: string, x: number, y: number, maxW: number,
   doc.text(text, x, y, { align: "center" });
 }
 
+/** Each mark has its own color so ✓ (geldi) and X (gelmedi) can never be confused with notes. */
+const MARK_RGB = { "✓": [30, 123, 79], X: [196, 52, 52], G: [184, 116, 10], "İ": [116, 82, 170], H: [40, 100, 170] } as const;
+const MARK_HEX = { "✓": "1E7B4F", X: "C43434", G: "B8740A", "İ": "7452AA", H: "2864AA" } as const;
+export const MARK_LEGEND = "✓ Geldi · X Gelmedi · G Geç geldi · İ İzinli · H Hasta · Boş = o vakit yoklama alınmadı";
+
 const SUMMARY_HEAD = ["Talebe", "Gün", "Kılınan Vakit", "Namaz %", "Ders", "Ders %", "Geç", "İzinli", "Hasta"];
 const DETAIL_HEAD = ["Tarih", "Talebe", ...VAKITLER, "Ders", "Durum"];
 
@@ -116,7 +121,7 @@ function chartPdfPages(doc: Pdf, m: MonthChart, first: boolean, heading: string)
         days.forEach((di, kk) => r.days[di]!.forEach((mark, j) => {
           const cx = xv + (kk * V + j) * vw;
           doc.rect(cx, y, vw, rh);
-          const col: [number, number, number] = mark === "✓" ? [30, 123, 79] : mark === "X" ? [196, 52, 52] : [116, 82, 170];
+          const col = MARK_RGB[mark as keyof typeof MARK_RGB] ?? [0, 0, 0];
           doc.setTextColor(col[0], col[1], col[2]);
           doc.setFontSize(Math.min(8, vw * 2.3));
           doc.text(mark, cx + vw / 2, y + rh * 0.7, { align: "center" });
@@ -125,6 +130,8 @@ function chartPdfPages(doc: Pdf, m: MonthChart, first: boolean, heading: string)
         doc.setTextColor(30, 123, 79); doc.rect(xc, y, cntW, rh); doc.text(String(r.katildi), xc + cntW / 2, y + 4, { align: "center" });
         doc.setTextColor(196, 52, 52); doc.rect(xc + cntW, y, cntW, rh); doc.text(String(r.katilmadi), xc + cntW * 1.5, y + 4, { align: "center" });
       });
+      doc.setTextColor(60); doc.setFont("DejaVu", "normal"); doc.setFontSize(7);
+      doc.text(MARK_LEGEND, 10, 204);
       doc.setTextColor(0);
     }
 }
@@ -245,14 +252,17 @@ function chartSheet(XLSX: XL, chart: NonNullable<ExportInput["chart"]>, title: s
     put(r, 0, i + 1);
     put(r, 1, row.name, { ...bold(8), alignment: { horizontal: "left", vertical: "center" } });
     row.days.forEach((marks, di) => marks.forEach((m, k) => {
-      const color = m === "✓" ? "1E7B4F" : m === "X" ? "C43434" : "7452AA";
+      const color = MARK_HEX[m as keyof typeof MARK_HEX] ?? "000000";
       put(r, first + di * V + k, m, { font: { name: "Arial", sz: 10, bold: true, color: { rgb: color } } });
     }));
     put(r, last, row.katildi, { ...bold(10), font: { name: "Arial", sz: 10, bold: true, color: { rgb: "1E7B4F" } } });
     put(r, last + 1, row.katilmadi, { font: { name: "Arial", sz: 10, bold: true, color: { rgb: "C43434" } } });
   });
 
-  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 3 + Math.max(1, chart.rows.length), c: last + 1 } });
+  const legendRow = 5 + Math.max(1, chart.rows.length);
+  ws[XLSX.utils.encode_cell({ r: legendRow, c: 0 })] = { v: MARK_LEGEND, t: "s", s: { font: { name: "Arial", sz: 9, italic: true } } };
+  merges.push({ s: { r: legendRow, c: 0 }, e: { r: legendRow, c: Math.min(last + 1, 40) } });
+  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: legendRow, c: last + 1 } });
   ws["!merges"] = merges;
   ws["!cols"] = [{ wch: 4 }, { wch: 24 }, ...Array.from({ length: last - first }, () => ({ wch: 3 })), { wch: 6 }, { wch: 6 }];
   ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 52 }, { hpt: 16 }];
