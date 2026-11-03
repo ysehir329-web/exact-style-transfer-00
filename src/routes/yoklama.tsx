@@ -71,6 +71,7 @@ function Yoklama() {
         </label>
         <Button onClick={save} disabled={!students.length} size="sm" className="shrink-0">{saved ? <Check /> : <Save />} {saved ? "Kaydedildi" : "Yoklamayı Kaydet"}</Button>
       </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">Her işaret anında otomatik kaydedilir. İşaretlenmeyen hücre X (gelmedi) sayılır.</p>
       <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-surface p-1 text-sm">
         {([["hepsi", "Tüm Vakitler"], ["tek", "Tek Namaz"]] as const).map(([k, l]) => (
           <Button key={k} variant="ghost" size="sm" onClick={() => setMode(k)} aria-pressed={mode === k} className={mode === k ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground"}>{l}</Button>
