@@ -51,7 +51,7 @@ export async function generateTextViaGateway(instructions: string, prompt: strin
 }
 
 /** Text generation with images (data URLs). Returns the final text. */
-export async function generateWithImagesViaGateway(instructions: string, prompt: string, images: string[]): Promise<string> {
+export async function generateWithImagesViaGateway(instructions: string, prompt: string, images: string[], effort: "medium" | "high" = "medium"): Promise<string> {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("AI yapılandırılmamış.");
   const provider = createOpenAI({
@@ -73,7 +73,7 @@ export async function generateWithImagesViaGateway(instructions: string, prompt:
     onError: ({ error }) => {
       failure = error;
     },
-    providerOptions: { openai: { store: false, reasoningEffort: "medium" } },
+    providerOptions: { openai: { store: false, reasoningEffort: effort } },
   });
   const text = (await result.text).trim();
   if (!text) throw failure ?? new Error("AI boş yanıt döndürdü.");
