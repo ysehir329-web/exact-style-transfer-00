@@ -1,5 +1,5 @@
 import type { AttendanceRow, Student } from "./store";
-import { VAKITLER, CELL_LETTER, CELL_LABEL, cellStatus, came, computeStats } from "./stats";
+import { VAKITLER, CELL_LETTER, CELL_LABEL, cellStatus, came, computeStats, latestPerDay } from "./stats";
 
 export type Period = "gunluk" | "haftalik" | "aylik" | "yillik" | "tumu";
 
@@ -91,7 +91,8 @@ export type SummaryRow = {
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 
-export function buildReport(students: Student[], rows: AttendanceRow[]) {
+export function buildReport(students: Student[], allRows: AttendanceRow[]) {
+  const rows = latestPerDay(allRows);
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const byStudent = new Map<string, AttendanceRow[]>();
   for (const r of rows) {
@@ -161,7 +162,8 @@ export type ChartRow = { name: string; days: ChartMark[][]; katildi: number; kat
  * ✓ = geldi, G = geç, İ = izinli, H = hasta, X = gelmedi.
  * Katıldığı/katılmadığı = number of prayer times (vakit) attended (✓/G) or missed (X).
  */
-export function buildChart(students: Student[], rows: AttendanceRow[], range?: Range) {
+export function buildChart(students: Student[], allRows: AttendanceRow[], range?: Range) {
+  const rows = latestPerDay(allRows);
   const ids = new Set(students.map((s) => s.id));
   const days = range ? rangeDays(range) : [...new Set(rows.filter((r) => ids.has(r.studentId)).map((r) => r.date))].sort();
   const byKey = new Map(rows.map((r) => [`${r.studentId}|${r.date}`, r]));

@@ -23,6 +23,20 @@ export function cellStatus(r: Pick<AttendanceRow, "vakitler" | "ders" | "durum" 
 
 export const came = (s: CellStatus) => s === "geldi" || s === "gec";
 
+/** One record per student per day: if a day was saved twice (old backups, imports) the newest (last) one wins. */
+export function latestPerDay<T extends Pick<AttendanceRow, "studentId" | "date">>(rows: T[]): T[] {
+  const by = new Map<string, T>();
+  for (const r of rows) {
+    const k = `${r.studentId}|${r.date}`;
+    by.delete(k);
+    by.set(k, r);
+  }
+  return [...by.values()];
+}
+
+/** A blank record: every cell "yok" until marked. */
+export const emptyCells = () => ({ vakitler: [] as string[], ders: false, durum: "normal" as const, durumlar: {} as NonNullable<AttendanceRow["durumlar"]> });
+
 /** Replace one cell, preserving the other cells and normalizing legacy day-wide permission. */
 export function setCellStatus(r: Pick<AttendanceRow, "vakitler" | "ders" | "durum" | "durumlar">, c: string, status: CellStatus) {
   const durumlar: NonNullable<AttendanceRow["durumlar"]> = {};
