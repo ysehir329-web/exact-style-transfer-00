@@ -154,3 +154,33 @@ describe("unmarked vakit stay blank", () => {
     expect(c.rows[1]).toMatchObject({ katildi: 0, katilmadi: 1 });
   });
 });
+
+describe("report never swaps came / did not come", () => {
+  const st = (id: string, name: string) => ({ id, name, age: "", group: "", city: "", startDate: "", guardian: "", phone: "", status: "İyi" as const });
+  const studs = [st("a", "Ahmet"), st("b", "Bekir")];
+  const range = { start: "2026-11-02", end: "2026-11-02" };
+
+  it("shows ✓ only where the student came and X where he did not", () => {
+    const rows = [
+      { id: "1", studentId: "a", date: "2026-11-02", vakitler: ["Sabah"], ders: false, durum: "normal" as const, durumlar: {} },
+      { id: "2", studentId: "b", date: "2026-11-02", vakitler: [], ders: false, durum: "normal" as const, durumlar: {} },
+    ];
+    const chart = buildChart(studs, rows, range);
+    expect(chart.rows[0]!.days[0]![0]).toBe("✓");
+    expect(chart.rows[1]!.days[0]![0]).toBe("X");
+    expect(chart.rows[0]!.katildi).toBe(1);
+    expect(chart.rows[1]!.katilmadi).toBe(1);
+  });
+
+  it("uses the newest record when a day was saved twice", () => {
+    const rows = [
+      { id: "1", studentId: "a", date: "2026-11-02", vakitler: [], ders: false, durum: "normal" as const, durumlar: {} },
+      { id: "2", studentId: "b", date: "2026-11-02", vakitler: ["Sabah"], ders: false, durum: "normal" as const, durumlar: {} },
+      { id: "3", studentId: "a", date: "2026-11-02", vakitler: ["Sabah"], ders: false, durum: "normal" as const, durumlar: {} },
+    ];
+    const chart = buildChart(studs, rows, range);
+    expect(chart.rows[0]!.days[0]![0]).toBe("✓");
+    expect(chart.rows[0]!.katilmadi).toBe(0);
+    expect(buildReport(studs, rows).summary.find((s) => s.name === "Ahmet")!.gun).toBe(1);
+  });
+});
